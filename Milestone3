@@ -64,3 +64,46 @@ file_path = 'yellow_tripdata_2022-B.parquet'
 sample_set = spark.read.parquet(file_path, sep='\t', header=True, inferSchema=True)
 sample_set.show(20, truncate=False)
 
+
+# Look at statistics for some specific columns
+sample_set.select("passenger_count", "trip_distance", "total_amount").summary("count", "min",
+"max", "mean").show()
+total_rows = sample_set.count()
+print("Total rows in this file:",total_rows,"rows.")
+#take very long if you have a big dataset (11012023)
+# sample_set.summary().show()
+
+
+#check columns one by one 
+#set a table
+peek_table = sample_set.groupBy("airport_fee").count()
+peek_table = peek_table.orderBy("airport_fee")
+# Show the ordered table
+peek_table.show(300)
+
+# Check to see if some of the columns have NULL values
+sample_set.select([count(when(isnan(c) | col(c).isNull(), c)).alias(c) for c in
+["trip_distance", "passenger_count"]] ).show()
+
+
+
+#Taxi Zone csv turn to parquet
+#Change column "PULocationID" and "DOLocationID" to area/borough name
+#https://data.cityofnewyork.us/Transportation/NYC-Taxi-Zones/d3c5-ddgc
+
+from pyspark.sql import SparkSession
+# Create a Spark session
+spark = SparkSession.builder.appName("CSV to Parquet Conversion").getOrCreate()
+# Specify the path to your CSV file
+csv_file_path = 's3://4130projectaw/landing/taxi_zones.csv'
+# Read the CSV file into a Spark DataFrame
+df = spark.read.csv(csv_file_path, header=True, inferSchema=True)
+df = df.drop("Shape_Leng","the_geom","Shape_Area")
+df = df.select("LocationID", "zone", "borough")
+# Specify the path for the output Parquet file
+location_path = 's3://4130projectaw/raw/taxi_zones.parquet'
+# Write the DataFrame to a Parquet file
+df.write.parquet(location_path)
+# Show the content of the converted Parquet file
+letter_Location = spark.read.parquet(location_path)
+letter_Location.show(300)
