@@ -1,1 +1,9 @@
-
+#add package
+!pip install pandas pyarrow sodapy
+!pip install fsspec s3fs boto3
+#TLC Trip Record Data （original
+#https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page
+#open resourse 
+#https://data.cityofnewyork.us/Transportation/2021-Yellow-Taxi-Trip-Data/m6nq-qud6
+#manual
+#https://www.nyc.gov/assets/tlc/downloads/pdf/data_dictionary_trip_records_yellow.pdf
