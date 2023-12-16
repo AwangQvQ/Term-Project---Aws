@@ -68,4 +68,6 @@ def calculate_recall_precision(cm):
  accuracy = ( tp + tn ) / ( tp + tn + fp + fn )
  f1_score = 2 * ( ( precision * recall ) / ( precision + recall ) )
  return accuracy, precision, recall, f1_score
+
+print("Accuracy, Precision, Recall, F1 Score")
 print( calculate_recall_precision(cm) )
