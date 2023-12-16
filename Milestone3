@@ -64,6 +64,10 @@ file_path = 'yellow_tripdata_2022-B.parquet'
 sample_set = spark.read.parquet(file_path, sep='\t', header=True, inferSchema=True)
 sample_set.show(20, truncate=False)
 
+# Check data for outliers, nulls etc.
+from pyspark.sql.functions import *
+columns_to_check = ["airport_fee", "mta_tax", "congestion_surcharge", "total_amount", "payment_type"]
+sdf.select([count(when(isnan(c) | col(c).isNull(), c)).alias(c) for c in columns_to_check] ).show()
 
 # Look at statistics for some specific columns
 sample_set.select("passenger_count", "trip_distance", "total_amount").summary("count", "min",
