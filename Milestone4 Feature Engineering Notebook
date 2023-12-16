@@ -27,13 +27,10 @@ indexed_sdf.show()
 
 # Create a Binarizer with a threshold of 0
 binarizer = Binarizer(threshold=0, inputCol="airport_fee", outputCol="binary_airport_fee")
-
 # Transform the DataFrame using the Binarizer
 binarized_airport_sdf = binarizer.transform(indexed_sdf)
-
 # Print the threshold used by the Binarizer
 print("Binarizer output with Threshold", binarizer.getThreshold())
-
 # Show the resulting DataFrame
 binarized_airport_sdf.show()
 
@@ -48,24 +45,15 @@ assembled_sdf = assembler.transform(encoded_sdf)
 assembled_sdf.select(['PUzoneVector',
 'DOzoneVector','PUboroughVector','DOboroughVector','airportVector','features']).show (truncate=False)
 
+from pyspark.ml.feature import FeatureHasher
+selected_columns = [
+    'pickup_date', 'pickup_time', 'dropoff_date', 'dropoff_time',
+    'PUzone', 'DOzone', 'PUborough', 'DOborough', 'airport_fee']
+selected_df = test_set.select(selected_columns)
 
+hasher = FeatureHasher(numFeatures=4096, inputCols=selected_columns, outputCol="nfeatures")
 
-
-# Split the data into 70% training and 30% test sets
-trainingData, testData = transformed_sdf.randomSplit([0.7, 0.3], seed=42)
-# Create a LogisticRegression Estimator
-lr = LogisticRegression()
-# Fit the model to the training data
-model = lr.fit(trainingData)
-# Show model coefficients and intercept
-print("Coefficients: ", model.coefficients)
-print("Intercept: ", model.intercept)
-# Test the model on the testData
-test_results = model.transform(testData)
-# Show the test results
-test_results.select('food','drink','total','tip','rawPrediction','probability','prediction',
-'label').show(truncate=False)
-
-
+featurized_sdf = hasher.transform(selected_df)
+featurized_sdf.show(10,truncate=False)
 
 
