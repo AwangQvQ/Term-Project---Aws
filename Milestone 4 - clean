@@ -1,0 +1,39 @@
+#clean data from landing then write it to raw
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col
+
+# Create a Spark session
+spark = SparkSession.builder.appName("Read and Clean").getOrCreate()
+
+file_path = 's3://4130projectaw/landing/yellow_tripdata_2022-B.parquet'
+sample_set = spark.read.parquet(file_path, sep='\t', header=True, inferSchema=True)
+location_path = 's3://4130projectaw/raw/taxi_zones.parquet'
+letter_Location = spark.read.parquet(location_path)
+
+# Perform a left join to update PUzone and PUborough in sample_set based on LocationID
+result_PU = sample_set.join(letter_Location, sample_set['PULocationID'] == letter_Location['LocationID'], 'left_outer') \
+    .drop(letter_Location['LocationID'])  # Drop the duplicate LocationID column
+
+
+# Add new columns "PUzone" and "PUborough" based on values in letter_Location
+result_PU = result_PU.withColumn("PUzone", col("zone")).withColumn("PUborough", col("borough"))
+result_PU = result_PU.drop("zone", "borough")
+
+# Show the updated DataFrame
+#result_PU.show(10, truncate=False)
+
+# Perform a left join to update DOzone and DOborough in result_PU based on DOLocationID
+result_PU = result_PU.join(letter_Location.alias("loc_do"), result_PU['DOLocationID'] == col("loc_do.LocationID"), 'left_outer') \
+    .drop("loc_do.LocationID")  # Drop the duplicate LocationID column
+
+# Add new columns "DOzone" and "DOborough" based on values in letter_Location
+result_PU = result_PU.withColumn("DOzone", col("loc_do.zone")).withColumn("DOborough", col("loc_do.borough"))
+result_PU = result_PU.drop("zone", "borough","LocationID","store_and_fwd_flag")
+result_PU = result_PU.dropna()
+
+# Show the updated DataFrame
+result_PU.show(10, truncate=False)
+
+# Write the DataFrame to a Parquet file
+raw_path = 's3://4130projectaw/raw/cleaned_yellow_tripdata_2022-B.parquet'
+result_PU.write.parquet(raw_path)
