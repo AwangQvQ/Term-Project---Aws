@@ -37,3 +37,30 @@ result_PU.show(10, truncate=False)
 # Write the DataFrame to a Parquet file
 raw_path = 's3://4130projectaw/raw/cleaned_yellow_tripdata_2022-B.parquet'
 result_PU.write.parquet(raw_path)
+
+# Check data for outliers, nulls etc.
+from pyspark.sql.functions import *
+raw_path = 's3://4130projectaw/raw/cleaned_yellow_tripdata_2023-01.parquet'
+test_set = spark.read.parquet(raw_path, sep='\t', header=True, inferSchema=True)
+
+columns_to_check = ["airport_fee", "mta_tax", "congestion_surcharge", "total_amount", "payment_type"]
+test_set.select([count(when(isnan(c) | col(c).isNull(), c)).alias(c) for c in columns_to_check] ).show()
+
+test_set.select("vendorID", "RatecodeID", "payment_type", "airport_fee", "mta_tax", "congestion_surcharge").summary().show()
+
+# Drop the airport fee because many of the values are null - not all taxi trips go to an airport
+# Drop the VendorID because it seems to be unqiue for each taxi trip
+# Drop the RatecodeID
+# Drop the store_and_fwd_flag
+
+columns_to_drop = ['vendorID', 'RatecodeID', 'store_and_fwd_flag', 'congestion_surcharge', 'improvement_surcharge']
+test_set = test_set.drop(*columns_to_drop)
+
+               
+# Fill missing values with a default value or drop records with missing values
+test_set = test_set.na.fill(0)  # You can replace 0 with the default value you want
+
+
+# Write the cleaned data as a Parquet file to the raw folder
+raw_folder_path = 's3://4130projectaw/raw/cleaned_yellow_tripdata_2023-01.parquet'
+test_set.write.parquet(raw_folder_path, mode='overwrite')
