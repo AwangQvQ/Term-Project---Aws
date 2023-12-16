@@ -1,0 +1,71 @@
+from pyspark.ml.feature import StringIndexer, OneHotEncoder, VectorAssembler
+from pyspark.ml import Pipeline
+from pyspark.ml.feature import Binarizer
+#pipeline 
+from pyspark.sql.functions import *
+from pyspark.ml.feature import StringIndexer, OneHotEncoder, VectorAssembler
+from pyspark.ml import Pipeline
+# Import the logistic regression model
+from pyspark.ml.classification import LogisticRegression, LogisticRegressionModel
+# Import the evaluation module
+from pyspark.ml.evaluation import *
+# Import the model tuning module
+from pyspark.ml.tuning import *
+import numpy as np
+
+
+indexer1 = StringIndexer(inputCol="PUzone", outputCol="PUzoneIndex")
+indexer2 = StringIndexer(inputCol="DOzone", outputCol="DOzoneIndex")
+indexer3 = StringIndexer(inputCol="PUborough", outputCol="PUboroughIndex")
+indexer4 = StringIndexer(inputCol="DOborough", outputCol="DOboroughIndex")
+
+pipeline = Pipeline(stages=[indexer1, indexer2,indexer3, indexer4])
+
+indexed_sdf = pipeline.fit(result_PU).transform(result_PU)
+indexed_sdf.show()
+
+
+# Create a Binarizer with a threshold of 0
+binarizer = Binarizer(threshold=0, inputCol="airport_fee", outputCol="binary_airport_fee")
+
+# Transform the DataFrame using the Binarizer
+binarized_airport_sdf = binarizer.transform(indexed_sdf)
+
+# Print the threshold used by the Binarizer
+print("Binarizer output with Threshold", binarizer.getThreshold())
+
+# Show the resulting DataFrame
+binarized_airport_sdf.show()
+
+encoder = OneHotEncoder(inputCols=['PUzoneIndex','DOzoneIndex','PUboroughIndex','DOboroughIndex','binary_airport_fee'], outputCols=['PUzoneVector',
+'DOzoneVector','PUboroughVector','DOboroughVector','airportVector'], dropLast=False)
+encoded_sdf = encoder.fit(binarized_airport_sdf).transform(binarized_airport_sdf)
+# Assemble all of the vectors into one
+assembler = VectorAssembler(inputCols=['PUzoneVector',
+'DOzoneVector','PUboroughVector','DOboroughVector','airportVector'],outputCol=
+"features")
+assembled_sdf = assembler.transform(encoded_sdf)
+assembled_sdf.select(['PUzoneVector',
+'DOzoneVector','PUboroughVector','DOboroughVector','airportVector','features']).show (truncate=False)
+
+
+
+
+# Split the data into 70% training and 30% test sets
+trainingData, testData = transformed_sdf.randomSplit([0.7, 0.3], seed=42)
+# Create a LogisticRegression Estimator
+lr = LogisticRegression()
+# Fit the model to the training data
+model = lr.fit(trainingData)
+# Show model coefficients and intercept
+print("Coefficients: ", model.coefficients)
+print("Intercept: ", model.intercept)
+# Test the model on the testData
+test_results = model.transform(testData)
+# Show the test results
+test_results.select('food','drink','total','tip','rawPrediction','probability','prediction',
+'label').show(truncate=False)
+
+
+
+
