@@ -9,3 +9,63 @@ from pyspark.ml.evaluation import *
 # Import the model tuning module
 from pyspark.ml.tuning import *
 import numpy as np
+
+
+# Create a label. =1 if PUborough=mahattan, =0 otherwise
+sdf = test_set.withColumn("label", when(sdf.PUborough == "Manhattan", 1.0).otherwise(0.0) )
+
+# Create an indexer for the three string based columns.
+indexer = StringIndexer(inputCols=["PUzone", "DOzone", "PUborough",'DOborough'], outputCols=['PUzoneIndex','DOzoneIndex','PUboroughIndex','DOboroughIndex'])
+
+# Create an encoder for the three indexes and the age integer column.
+encoder = OneHotEncoder(inputCols=['PUzoneIndex','DOzoneIndex','PUboroughIndex','DOboroughIndex',],
+                                outputCols=['PUzoneVector', 'DOzoneVector','PUboroughVector','DOboroughVector' ],
+dropLast=False)
+# Create an assembler for the individual feature vectors and the float/double columns
+assembler = VectorAssembler(inputCols=['PUzoneVector',
+'DOzoneVector','PUboroughVector','DOboroughVector',
+], outputCol="features")
+
+# Create the pipeline
+pizzaria_pipe = Pipeline(stages=[indexer, encoder, assembler])
+# Call .fit to transform the data
+transformed_sdf = pizzaria_pipe.fit(sdf).transform(sdf)
+# Review the transformed features
+transformed_sdf.select('pickup_date', 'pickup_time', 'dropoff_date', 'dropoff_time',"PUzone", "DOzone", "PUborough",'DOborough','airport_fee','total_amount','label',
+'features').show(10, truncate=False)
+#sdf.show(10,truncate=False)
+
+# Split the data into 70% training and 30% test sets
+trainingData, testData = transformed_sdf.randomSplit([0.7, 0.3], seed=42)
+# Create a LogisticRegression Estimator
+lr = LogisticRegression()
+# Fit the model to the training data
+model = lr.fit(trainingData)
+# Show model coefficients and intercept
+print("Coefficients: ", model.coefficients)
+print("Intercept: ", model.intercept)
+
+
+# Test the model on the testData
+test_results = model.transform(testData)
+# Show the test results
+test_results.select('PUborough','DOborough','airport_fee','total_amount','rawPrediction','probability','prediction',
+'label').show(10, truncate=False)
+
+# Show the confusion matrix
+test_results.groupby('label').pivot('prediction').count().sort('label').show()
+
+
+# Save the confusion matrix
+cm = test_results.groupby('label').pivot('prediction').count().fillna(0).collect()
+def calculate_recall_precision(cm):
+ tn = cm[0][1] # True Negative
+ fp = cm[0][2] # False Positive
+ fn = cm[1][1] # False Negative
+ tp = cm[1][2] # True Positive
+ precision = tp / ( tp + fp )
+ recall = tp / ( tp + fn )
+ accuracy = ( tp + tn ) / ( tp + tn + fp + fn )
+ f1_score = 2 * ( ( precision * recall ) / ( precision + recall ) )
+ return accuracy, precision, recall, f1_score
+print( calculate_recall_precision(cm) )
