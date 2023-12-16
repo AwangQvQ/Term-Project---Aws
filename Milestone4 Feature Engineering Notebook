@@ -56,4 +56,8 @@ hasher = FeatureHasher(numFeatures=4096, inputCols=selected_columns, outputCol="
 featurized_sdf = hasher.transform(selected_df)
 featurized_sdf.show(10,truncate=False)
 
+raw_folder_path = 's3://4130projectaw/trusted/cleaned_fe_yellow_tripdata_2023-01.parquet'
+assembled_sdf.write.parquet(raw_folder_path, mode='overwrite')
+assembled_sdf.show(10)
+
 
